@@ -1,7 +1,21 @@
+"""
+Ricardo Tessele
+OK S — Spoofing: Possibilidade de login sem senha via SQL Injection.
+OK T — Tampering: Manipulação de dados por queries inseguras.
+R — Repudiation: Falta de logs adequados para rastreamento.
+OK I — Information Disclosure: Vazamento de dados via debug e senhas armazenadas em texto puro.
+D — Denial of Service: Falta de rate limiting que permite brute force e sobrecarga.
+OK E — Elevation of Privilege: SQL Injection permite escalar privilégios ou obter dados sensíveis.
+"""
+
 from flask import Flask, request, render_template, session, url_for, redirect
+from werkzeug.security import check_password_hash
+
 import sqlite3
 
 app = Flask(__name__)
+
+# Resolvemos através de um cofre de senhas / gerenciador de segredos
 app.secret_key = b'1234'
 
 # Simulação de um banco de dados inseguro
@@ -32,11 +46,15 @@ def login():
     username = request.form.get('username')
     password = request.form.get('passwd') 
     
+    print(f"QUERY PARAMETERS: username={username}")
+
     conn = get_db_connection()
-    query = f"SELECT * FROM users WHERE username = '{username}' AND passwd = '{password}'"
-    user = conn.execute(query).fetchone()
-    
-    if user:
+    query = f"SELECT passwd FROM users where username = ?"
+    stored_passwd = conn.execute(query, (username,)).fetchone()
+    if stored_passwd == None:
+        return "Usuário ou senha incorretos", 401
+
+    if check_password_hash(stored_passwd[0], password):
         session['username'] = username
         return redirect(url_for('welcome'))
     return "Usuário ou senha incorretos", 401
